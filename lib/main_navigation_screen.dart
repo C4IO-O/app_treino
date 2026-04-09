@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'exercise_list_screen.dart';
+import 'routine_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -15,6 +16,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _pages = const [
     HomeScreen(),
     ExercisesListScreen(),
+    RoutineScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -41,6 +43,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.fitness_center),
             label: 'Exercícios',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list),
+            label: 'Rotina',
           ),
         ],
       ),

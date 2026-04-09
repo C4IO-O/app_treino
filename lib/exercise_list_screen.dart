@@ -5,17 +5,19 @@ import 'exercise_detail_screen.dart';
 // usa a classe Exercise do exercise.dart para criar uma lista de exercícios
 // é mais seguro pois são dados que serão verificados pelo Dart, e não apenas strings soltas
 const List<Exercise> exercises = [
-  Exercise(nome: 'Agachamento', musculo: 'Pernas', descricao: 'Exercício para fortalecer as pernas.'),
-  Exercise(nome: 'Supino Reto', musculo: 'Peito', descricao: 'Exercício para fortalecer o peito.'),
-  Exercise(nome: 'Puxada Alta', musculo: 'Costas', descricao: 'Exercício para fortalecer as costas.'),
-  Exercise(nome: 'Desenvolvimento c/ Halteres', musculo: 'Ombros', descricao: 'Exercício para fortalecer os ombros.'),
-  Exercise(nome: 'Rosca Direta', musculo: 'Bíceps', descricao: 'Exercício para fortalecer os bíceps.'),
-  Exercise(nome: 'Triceps Testa', musculo: 'Triceps', descricao: 'Exercício para fortalecer os tríceps.'),
-  Exercise(nome: 'Remada Curvada', musculo: 'Costas', descricao: 'Exercício para fortalecer as costas.')
+  Exercise(name: 'Agachamento', muscle: 'Pernas', description: 'Exercício para fortalecer as pernas.'),
+  Exercise(name: 'Supino Reto', muscle: 'Peito', description: 'Exercício para fortalecer o peito.'),
+  Exercise(name: 'Puxada Alta', muscle: 'Costas', description: 'Exercício para fortalecer as costas.'),
+  Exercise(name: 'Desenvolvimento c/ Halteres', muscle: 'Ombros', description: 'Exercício para fortalecer os ombros.'),
+  Exercise(name: 'Rosca Direta', muscle: 'Bíceps', description: 'Exercício para fortalecer os bíceps.'),
+  Exercise(name: 'Triceps Testa', muscle: 'Triceps', description: 'Exercício para fortalecer os tríceps.'),
+  Exercise(name: 'Remada Curvada', muscle: 'Costas', description: 'Exercício para fortalecer as costas.')
 ];
 
 class ExercisesListScreen extends StatelessWidget {
-  const ExercisesListScreen({super.key});
+  final bool selectionMode;
+
+  const ExercisesListScreen({super.key, this.selectionMode = false});
 
   @override
   Widget build(BuildContext context) {
@@ -37,17 +39,16 @@ class ExercisesListScreen extends StatelessWidget {
           final exercise = exercises[index];
           return GestureDetector(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ExerciseDetailScreen(exercise: exercise),
-                ),
-              );
+              if (selectionMode) {
+                Navigator.pop(context, exercise); // volta para a tela anterior passando o exercício selecionado
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => ExerciseDetailScreen(exercise: exercise)));
+              }
             },
             child: ExerciseCard(
-              nome: exercise.nome,
-              musculo: exercise.musculo,
-              descricao: exercise.descricao,
+              nome: exercise.name,
+              musculo: exercise.muscle,
+              descricao: exercise.description,
             ),
           );
         },

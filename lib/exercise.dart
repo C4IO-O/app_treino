@@ -1,8 +1,8 @@
 // armazenar dados
 class Exercise {
-  final String nome;
-  final String musculo;
-  final String descricao;
+  final String name;
+  final String muscle;
+  final String description;
 
-  const Exercise({required this.nome, required this.musculo, required this.descricao});
+  const Exercise({required this.name, required this.muscle, required this.description});
 }
