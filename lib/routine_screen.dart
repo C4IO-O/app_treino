@@ -4,14 +4,14 @@ import 'exercise_list_screen.dart';
 import 'routine.dart';
 
 class RoutineScreen extends StatefulWidget {
-  const RoutineScreen({super.key});
+  final Routine routine;
+  const RoutineScreen({super.key, required this.routine});
 
   @override
   State<RoutineScreen> createState() => _RoutineScreenState();
 }
 
 class _RoutineScreenState extends State<RoutineScreen> {
-  final Routine routine = Routine(name: 'Novo Treino');
 
   @override
   Widget build(BuildContext context) {
@@ -28,21 +28,21 @@ class _RoutineScreenState extends State<RoutineScreen> {
           );
           if (exercise != null) {
             setState(() {
-              routine.exercises.add(ExerciseInRoutine(exercise: exercise));
+              widget.routine.exercises.add(ExerciseInRoutine(exercise: exercise));
             });
           }
         },
         child: const Icon(Icons.add),
       ),
-      appBar: AppBar(title: Text(routine.name)),
-      body: routine.exercises.isEmpty
+      appBar: AppBar(title: Text(widget.routine.name)),
+      body: widget.routine.exercises.isEmpty
           // ? -> se a condição for verdadeira (rotina estiver vazia) mostra a mensagem
           // : -> se a condição for falsa mostra a lista de exercícios
           ? const Center(child: Text('Nenhum exercício adicionado'))
           : ListView.builder(
-              itemCount: routine.exercises.length,
+              itemCount: widget.routine.exercises.length,
               itemBuilder: (context, index) {
-                final exerciseInRoutine = routine.exercises[index];
+                final exerciseInRoutine = widget.routine.exercises[index];
                 return Card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

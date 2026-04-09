@@ -1,7 +1,7 @@
+import 'package:app_treino/library_screen.dart';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'exercise_list_screen.dart';
-import 'routine_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -16,7 +16,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _pages = const [
     HomeScreen(),
     ExercisesListScreen(),
-    RoutineScreen(),
+    LibraryScreen(),
   ];
 
   void _onItemTapped(int index) {
