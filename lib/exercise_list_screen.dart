@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import 'exercise.dart';
+import 'exercise_detail_screen.dart';
 
 // usa a classe Exercise do exercise.dart para criar uma lista de exercícios
 // é mais seguro pois são dados que serão verificados pelo Dart, e não apenas strings soltas
@@ -34,10 +35,20 @@ class ExercisesListScreen extends StatelessWidget {
         itemCount: exercises.length,
         itemBuilder: (context, index) {
           final exercise = exercises[index];
-          return ExerciseCard(
-            nome: exercise.nome,
-            musculo: exercise.musculo,
-            descricao: exercise.descricao,
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ExerciseDetailScreen(exercise: exercise),
+                ),
+              );
+            },
+            child: ExerciseCard(
+              nome: exercise.nome,
+              musculo: exercise.musculo,
+              descricao: exercise.descricao,
+            ),
           );
         },
       ),
