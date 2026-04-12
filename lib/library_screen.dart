@@ -74,7 +74,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 builder: (context) => AlertDialog(
                   title: const Text('Excluir rotina'),
                   content: Text(
-                    'Tens a certeza que queres excluir "${routine.name}"?',
+                    'Tens a certeza que queres excluir "${routine.name}"?', // Mensagem de confirmação para excluir a rotina
                   ),
                   actions: [
                     TextButton(
