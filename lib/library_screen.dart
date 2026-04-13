@@ -1,6 +1,6 @@
+import 'package:app_treino/program.dart';
 import 'package:flutter/material.dart';
-import 'routine_screen.dart';
-import 'routine.dart';
+import 'program_screen.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,21 +12,21 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  final List<Routine> routines = [];
+  final List<Program> programs = [];
 
-  Future<void> _saveRoutines() async {
+  Future<void> _savePrograms() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = routines.map((r) => r.toJson()).toList();
-    prefs.setString('routines', jsonEncode(data));
+    final data = programs.map((r) => r.toJson()).toList();
+    prefs.setString('programs', jsonEncode(data));
   }
 
-  Future<void> _loadRoutines() async {
+  Future<void> _loadPrograms() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('routines');
+    final data = prefs.getString('programs');
     if (data != null) {
       setState(() {
-        routines.addAll(
-          (jsonDecode(data) as List).map((r) => Routine.fromJson(r)),
+        programs.addAll(
+          (jsonDecode(data) as List).map((r) => Program.fromJson(r)),
         );
       });
     }
@@ -35,11 +35,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRoutines();
+    _loadPrograms();
   }
 
   // Exibe opções para renomear, duplicar ou excluir a rotina
-  void _showOptions(BuildContext context, Routine routine, int index) {
+  void _showOptions(BuildContext context, Program program, int index) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Column(
@@ -50,7 +50,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             title: const Text('Renomear'),
             onTap: () {
               Navigator.pop(context);
-              _renameRoutine(routine);
+              _renameProgram(program);
             },
           ),
           ListTile(
@@ -59,9 +59,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
             onTap: () {
               Navigator.pop(context);
               setState(() {
-                routines.add(Routine(name: '${routine.name} (cópia)'));
+                programs.add(Program(name: '${program.name} (cópia)'));
               });
-              _saveRoutines();
+              _savePrograms();
             },
           ),
           ListTile(
@@ -72,9 +72,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Excluir rotina'),
+                  title: const Text('Excluir Programa'),
                   content: Text(
-                    'Tens a certeza que queres excluir "${routine.name}"?', // Mensagem de confirmação para excluir a rotina
+                    'Tens a certeza que queres excluir "${program.name}"?', // Mensagem de confirmação para excluir a rotina
                   ),
                   actions: [
                     TextButton(
@@ -84,9 +84,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     TextButton(
                       onPressed: () {
                         setState(() {
-                          routines.removeAt(index);
+                          programs.removeAt(index);
                         });
-                        _saveRoutines();
+                        _savePrograms();
                         Navigator.pop(context);
                       },
                       child: const Text(
@@ -105,8 +105,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   // Exibe um diálogo para renomear a rotina
-  void _renameRoutine(Routine routine) {
-    final controller = TextEditingController(text: routine.name);
+  void _renameProgram(Program program) {
+    final controller = TextEditingController(text: program.name);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -120,9 +120,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           TextButton(
             onPressed: () {
               setState(() {
-                routine.name = controller.text;
+                program.name = controller.text;
               });
-              _saveRoutines();
+              _savePrograms();
               Navigator.pop(context);
             },
             child: const Text('Guardar'),
@@ -135,18 +135,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Biblioteca de Rotinas')),
+      appBar: AppBar(title: const Text('Biblioteca')),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           final controller = TextEditingController();
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Nova Rotina'),
+              title: const Text('Novo Programa'),
               content: TextField(
                 controller: controller,
                 autofocus: true,
-                decoration: const InputDecoration(hintText: 'Nome da rotina'),
+                decoration: const InputDecoration(hintText: 'Nome do Programa'),
               ),
               actions: [
                 TextButton(
@@ -157,9 +157,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   onPressed: () {
                     if (controller.text.isNotEmpty) {
                       setState(() {
-                        routines.add(Routine(name: controller.text));
+                        programs.add(Program(name: controller.text));
                       });
-                      _saveRoutines();
+                      _savePrograms();
                     }
                     Navigator.pop(context);
                   },
@@ -171,25 +171,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
         },
         child: const Icon(Icons.add),
       ),
-      body: routines.isEmpty
-          ? const Center(child: Text('Nenhuma rotina adicionada'))
+      body: programs.isEmpty
+          ? const Center(child: Text('Nenhum programa adicionado'))
           : ListView.builder(
-              itemCount: routines.length,
+              itemCount: programs.length,
               itemBuilder: (context, index) {
-                final routine = routines[index];
+                final program = programs[index];
                 return ListTile(
                   trailing: IconButton(
                     icon: const Icon(Icons.more_vert),
-                    onPressed: () => _showOptions(context, routine, index),
+                    onPressed: () => _showOptions(context, program, index),
                   ),
                   leading: const Icon(Icons.fitness_center),
-                  title: Text(routine.name),
-                  subtitle: Text('${routine.exercises.length} exercícios'),
+                  title: Text(program.name),
+                  subtitle: Text('${program.workouts.length} treinos'),
                   onTap: () async {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => RoutineScreen(routine: routine),
+                        builder: (context) => ProgramScreen(program: program),
                       ),
                     );
                     // Atualiza a tela para refletir as mudanças na rotina

@@ -46,7 +46,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.list),
-            label: 'Rotina',
+            label: 'Biblioteca',
           ),
         ],
       ),
