@@ -189,7 +189,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ProgramScreen(program: program),
+                        builder: (context) => ProgramScreen (program: program, allPrograms: programs), // passa a lista completa
                       ),
                     );
                     // Atualiza a tela para refletir as mudanças na rotina
