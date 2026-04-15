@@ -225,8 +225,14 @@ class _ProgramScreenState extends State<ProgramScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.play_arrow, color: Colors.green),
-                        onPressed: () {},
-                        // botão de play que será implementado depois
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => WorkoutScreen(workout: workout, isActive: true),
+                            ),
+                          );
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.more_vert),
