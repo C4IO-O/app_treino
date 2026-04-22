@@ -26,12 +26,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   late Timer _timer;
   int _seconds = 0;
 
+  // função para renumerar as séries normais (tipo numérico ou '__normal__')
+  // sempre que uma série é marcada como normal ou quando uma série normal é removida, garantindo que os números fiquem sequenciais
+  void _renumberNormalSets(ExerciseInWorkout exerciseInWorkout) {
+    int counter = 1;
+    for (final set in exerciseInWorkout.sets) {
+      // Consideramos "normal" se o tipo for um número inteiro ou a string especial '__normal__'
+      if (int.tryParse(set.tipo) != null || set.tipo == '__normal__') {
+        set.tipo = '$counter';
+        counter++;
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.isActive) {
       // resetar as séries
-      for (final exercise in widget.workout.exercise) {
+      for (final exercise in widget.workout.exercises) {
         for (final set in exercise.sets) {
           set.isCompleted = false;
         }
@@ -59,7 +72,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   int get _totalVolume {
-    return widget.workout.exercise.fold(0, (total, exercise) {
+    return widget.workout.exercises.fold(0, (total, exercise) {
       return total +
           exercise.sets.fold(0, (sum, s) {
             return sum + (s.isCompleted ? (s.weight * s.reps).toInt() : 0);
@@ -103,7 +116,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           );
           if (exercise != null) {
             setState(() {
-              widget.workout.exercise.add(
+              widget.workout.exercises.add(
                 ExerciseInWorkout(exercise: exercise),
               );
             });
@@ -153,6 +166,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
         ],
       ),
+      // quando o treino tá ativo, mostra o progresso (volume total e séries completas) e permite marcar as séries como completas.
       body: Column(
         children: [
           if (widget.isActive)
@@ -183,7 +197,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         style: TextStyle(color: Colors.grey),
                       ),
                       Text(
-                        '${widget.workout.exercise.fold(0, (t, e) => t + e.sets.where((s) => s.isCompleted).length)} / ${widget.workout.exercise.fold(0, (t, e) => t + e.sets.length)}',
+                        '${widget.workout.exercises.fold(0, (t, e) => t + e.sets.where((s) => s.isCompleted).length)} / ${widget.workout.exercises.fold(0, (t, e) => t + e.sets.length)}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -195,31 +209,53 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
             ),
           Expanded(
-            child: widget.workout.exercise.isEmpty
+            child: widget.workout.exercises.isEmpty
                 // ? -> se a condição for verdadeira (rotina estiver vazia) mostra a mensagem
                 // : -> se a condição for falsa mostra a lista de exercícios
                 ? const Center(child: Text('Nenhum exercício adicionado'))
                 : ListView.builder(
-                    itemCount: widget.workout.exercise.length,
+                    itemCount: widget.workout.exercises.length,
                     itemBuilder: (context, index) {
-                      final exerciseInProgram = widget.workout.exercise[index];
+                      final exerciseInWorkout = widget.workout.exercises[index];
                       return Card(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // 1. Cabeçalho do exercício
-                            ListTile(
-                              title: Text(exerciseInProgram.exercise.name),
-                              subtitle: Text(exerciseInProgram.exercise.muscle),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              child: Row(
                                 children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          exerciseInWorkout.exercise.name,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          exerciseInWorkout.exercise.muscle,
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                   IconButton(
                                     icon: const Icon(Icons.add),
                                     onPressed: () {
                                       setState(() {
                                         final nextNumber =
-                                            exerciseInProgram.sets
+                                            exerciseInWorkout.sets
                                                 .where(
                                                   (s) =>
                                                       int.tryParse(s.tipo) !=
@@ -227,7 +263,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                 )
                                                 .length +
                                             1;
-                                        exerciseInProgram.sets.add(
+                                        exerciseInWorkout.sets.add(
                                           Sets(
                                             weight: 0,
                                             reps: 0,
@@ -244,9 +280,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       color: Colors.red,
                                     ),
                                     onPressed: () {
-                                      setState(() {
-                                        widget.workout.exercise.removeAt(index);
-                                      });
+                                      setState(
+                                        () => widget.workout.exercises.removeAt(
+                                          index,
+                                        ),
+                                      );
                                       _saveWorkout();
                                     },
                                   ),
@@ -254,101 +292,97 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                               ),
                             ),
                             // 2. Lista de séries
-                            ...exerciseInProgram.sets.asMap().entries.map((
+                            ...exerciseInWorkout.sets.asMap().entries.map((
                               entry,
                             ) {
+                              // inicio de cada série
                               final i = entry.key;
                               final set = entry.value;
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 4,
+
+                              return Dismissible(
+                                key: ValueKey(
+                                  set.id,
+                                ), // ID único gerado para cada série
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (direction) async {
+                                  // retorna true para confirmar a exclusão, false para cancelar
+                                  return true;
+                                },
+                                onDismissed: (direction) {
+                                  if (i < exerciseInWorkout.sets.length) {
+                                    setState(() {
+                                      exerciseInWorkout.sets.removeAt(i);
+                                      _renumberNormalSets(
+                                        exerciseInWorkout,
+                                      ); // reordena as séries normais após a remoção
+                                    });
+                                  }
+                                  _saveWorkout();
+                                },
+                                // widget que aparece por trás da série quando o usuário desliza para excluir
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 16),
+                                  color: Colors.red,
+                                  child: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          builder: (context) => Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Padding(
-                                                padding: EdgeInsets.all(16),
-                                                child: Text(
-                                                  'Tipo de Série',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            builder: (context) => Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Padding(
+                                                  padding: EdgeInsets.all(16),
+                                                  child: Text(
+                                                    'Tipo de Série',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                              Padding(
-                                                padding: const EdgeInsets.all(
-                                                  16,
-                                                ),
-                                                child: Wrap(
-                                                  spacing: 8,
-                                                  runSpacing: 8,
-                                                  children: [
-                                                    GestureDetector(
-                                                      onTap: () {
-                                                        setState(() {
-                                                          set.tipo =
-                                                              '__normal__';
-                                                          int counter = 1;
-                                                          for (final s
-                                                              in exerciseInProgram
-                                                                  .sets) {
-                                                            if (int.tryParse(
-                                                                      s.tipo,
-                                                                    ) !=
-                                                                    null ||
-                                                                s.tipo ==
-                                                                    '__normal__') {
-                                                              s.tipo =
-                                                                  '$counter';
-                                                              counter++;
-                                                            }
-                                                          }
-                                                        });
-                                                        Navigator.pop(context);
-                                                      },
-                                                      child: Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 16,
-                                                              vertical: 8,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(
-                                                            0xFF2C2C2C,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                        ),
-                                                        child: const Text(
-                                                          'Normal',
-                                                          style: TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    for (final tipo in [
-                                                      'A',
-                                                      'F',
-                                                      'DS',
-                                                    ])
+                                                Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    16,
+                                                  ),
+                                                  child: Wrap(
+                                                    spacing: 8,
+                                                    runSpacing: 8,
+                                                    children: [
                                                       GestureDetector(
                                                         onTap: () {
-                                                          setState(
-                                                            () =>
-                                                                set.tipo = tipo,
-                                                          );
+                                                          setState(() {
+                                                            set.tipo =
+                                                                '__normal__';
+                                                            int counter = 1;
+                                                            for (final s
+                                                                in exerciseInWorkout
+                                                                    .sets) {
+                                                              if (int.tryParse(
+                                                                        s.tipo,
+                                                                      ) !=
+                                                                      null ||
+                                                                  s.tipo ==
+                                                                      '__normal__') {
+                                                                s.tipo =
+                                                                    '$counter';
+                                                                counter++;
+                                                              }
+                                                            }
+                                                          });
                                                           Navigator.pop(
                                                             context,
                                                           );
@@ -368,151 +402,185 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                                   8,
                                                                 ),
                                                           ),
-                                                          child: Text(
-                                                            tipo,
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                ),
+                                                          child: const Text(
+                                                            'Normal',
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                            ),
                                                           ),
                                                         ),
                                                       ),
-                                                  ],
-                                                ),
-                                              ),
-                                              ListTile(
-                                                leading: const Icon(
-                                                  Icons.delete_outline,
-                                                  color: Colors.red,
-                                                ),
-                                                title: const Text(
-                                                  'Remover série',
-                                                  style: TextStyle(
-                                                    color: Colors.red,
+                                                      for (final tipo in [
+                                                        'A',
+                                                        'F',
+                                                        'DS',
+                                                      ])
+                                                        GestureDetector(
+                                                          onTap: () {
+                                                            setState(
+                                                              () => set.tipo =
+                                                                  tipo,
+                                                            );
+                                                            Navigator.pop(
+                                                              context,
+                                                            );
+                                                          },
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      16,
+                                                                  vertical: 8,
+                                                                ),
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  const Color(
+                                                                    0xFF2C2C2C,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
+                                                            ),
+                                                            child: Text(
+                                                              tipo,
+                                                              style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
                                                   ),
                                                 ),
-                                                onTap: () {
-                                                  setState(
-                                                    () => exerciseInProgram.sets
-                                                        .removeAt(i),
-                                                  );
-                                                  Navigator.pop(context);
-                                                },
-                                              ),
-                                              const SizedBox(height: 16),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF2C2C2C),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          set.tipo,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Espaço entre o tipo e os campos de peso/reps
-                                    const SizedBox(width: 16),
-                                    SizedBox(
-                                      width: 60,
-                                      child: TextFormField(
-                                        key: ValueKey(
-                                          'weight-${exerciseInProgram.exercise.name}-$i',
-                                        ),
-                                        keyboardType: TextInputType.number,
-                                        initialValue: set.weight.toString(),
-                                        decoration: const InputDecoration(
-                                          labelText: 'kg',
-                                        ),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            set.weight =
-                                                double.tryParse(value) ??
-                                                set.weight; // converte texto em número, se falhar mantém o valor atual
-                                          });
-                                          _saveWorkout();
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    SizedBox(
-                                      width: 60,
-                                      child: TextFormField(
-                                        key: ValueKey(
-                                          'reps-${exerciseInProgram.exercise.name}-$i',
-                                        ),
-                                        keyboardType: TextInputType.number,
-                                        initialValue: set.reps.toString(),
-                                        decoration: const InputDecoration(
-                                          labelText: 'reps',
-                                        ),
-                                        onChanged: (value) {
-                                          setState(() {
-                                            set.reps =
-                                                int.tryParse(value) ??
-                                                set.reps; // converte texto em número, se falhar mantém o valor atual
-                                          });
-                                          _saveWorkout();
-                                        },
-                                      ),
-                                    ),
-                                    // só mostra o checkbox para marcar série como completa durante o treino
-                                    if (widget.isActive)
-                                      GestureDetector(
-                                        onTap: () {
-                                          setState(
-                                            () => set.isCompleted =
-                                                !set.isCompleted,
+                                                // opção para remover a série
+                                                ListTile(
+                                                  leading: const Icon(
+                                                    Icons.delete_outline,
+                                                    color: Colors.red,
+                                                  ),
+                                                  title: const Text(
+                                                    'Remover série',
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                  onTap: () {
+                                                    setState(() {
+                                                      exerciseInWorkout.sets
+                                                          .removeAt(i);
+                                                      _renumberNormalSets(
+                                                        exerciseInWorkout,
+                                                      );
+                                                    });
+                                                    _saveWorkout();
+                                                    Navigator.pop(context);
+                                                  },
+                                                ),
+                                                const SizedBox(height: 16),
+                                              ],
+                                            ),
                                           );
                                         },
                                         child: Container(
-                                          width: 32,
-                                          height: 32,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
                                           decoration: BoxDecoration(
-                                            color: set.isCompleted
-                                                ? Colors.green
-                                                : const Color(0xFF2C2C2C),
+                                            color: const Color(0xFF2C2C2C),
                                             borderRadius: BorderRadius.circular(
-                                              8,
+                                              6,
                                             ),
                                           ),
-                                          child: set.isCompleted
-                                              ? const Icon(
-                                                  Icons.check,
-                                                  size: 20,
-                                                  color: Colors.white,
-                                                )
-                                              : null,
+                                          child: Text(
+                                            set.tipo,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.remove_circle_outline,
-                                        color: Colors.red,
+                                      // Espaço entre o tipo e os campos de peso/reps
+                                      const SizedBox(width: 16),
+                                      SizedBox(
+                                        width: 60,
+                                        child: TextFormField(
+                                          key: ValueKey(
+                                            'weight-${exerciseInWorkout.exercise.name}-$i',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          initialValue: set.weight.toString(),
+                                          decoration: const InputDecoration(
+                                            labelText: 'kg',
+                                          ),
+                                          onChanged: (value) {
+                                            setState(() {
+                                              set.weight =
+                                                  double.tryParse(value) ??
+                                                  set.weight; // converte texto em número, se falhar mantém o valor atual
+                                            });
+                                            _saveWorkout();
+                                          },
+                                        ),
                                       ),
-                                      onPressed: () {
-                                        setState(() {
-                                          exerciseInProgram.sets.removeAt(i);
-                                        });
-                                        _saveWorkout();
-                                      },
-                                    ),
-                                  ],
+                                      const SizedBox(width: 16),
+                                      SizedBox(
+                                        width: 60,
+                                        child: TextFormField(
+                                          key: ValueKey(
+                                            'reps-${exerciseInWorkout.exercise.name}-$i',
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          initialValue: set.reps.toString(),
+                                          decoration: const InputDecoration(
+                                            labelText: 'reps',
+                                          ),
+                                          onChanged: (value) {
+                                            setState(() {
+                                              set.reps =
+                                                  int.tryParse(value) ??
+                                                  set.reps; // converte texto em número, se falhar mantém o valor atual
+                                            });
+                                            _saveWorkout();
+                                          },
+                                        ),
+                                      ),
+                                      // só mostra o checkbox para marcar série como completa durante o treino
+                                      if (widget.isActive)
+                                        GestureDetector(
+                                          onTap: () {
+                                            setState(
+                                              () => set.isCompleted =
+                                                  !set.isCompleted,
+                                            );
+                                          },
+                                          child: Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              color: set.isCompleted
+                                                  ? Colors.green
+                                                  : const Color(0xFF2C2C2C),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: set.isCompleted
+                                                ? const Icon(
+                                                    Icons.check,
+                                                    size: 20,
+                                                    color: Colors.white,
+                                                  )
+                                                : null,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               );
                             }),

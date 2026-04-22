@@ -1,8 +1,11 @@
+import 'dart:math';
+
 class Sets {
   double weight;
   int reps;
   String tipo;
   bool isCompleted;
+  final String id = DateTime.now().millisecondsSinceEpoch.toString() + Random().nextInt(999999).toString(); // ID único baseado no timestamp
 
   Sets({required this.weight, required this.reps, this.tipo = '1', this.isCompleted = false});
 

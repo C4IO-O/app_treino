@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:app_treino/program.dart';
 import 'workout.dart';
 import 'package:app_treino/workout_screen.dart';
+import 'workout_detail_screen.dart';
 
 // tela exibida ao clicar em um programa, mostra os treinos daquele programa e permite criar novos
 // precisa colocar save e load para guardar os treinos
@@ -42,7 +43,7 @@ class _ProgramScreenState extends State<ProgramScreen> {
               Navigator.pop(context);
               setState(() {
                 final copy = Workout(name: '${workout.name} (cópia)');
-                copy.exercise.addAll(workout.exercise);
+                copy.exercises.addAll(workout.exercises);
                 widget.program.workouts.add(copy);
               });
             },
@@ -210,12 +211,13 @@ class _ProgramScreenState extends State<ProgramScreen> {
                 return ListTile(
                   leading: const Icon(Icons.fitness_center),
                   title: Text(workout.name),
-                  subtitle: Text('${workout.exercise.length} exercícios'),
+                  subtitle: Text('${workout.exercises.length} exercícios'),
                   onTap: () async {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => WorkoutScreen(workout: workout),
+                        builder: (context) =>
+                            WorkoutDetailScreen(workout: workout),
                       ),
                     );
                     setState(() {});
@@ -229,7 +231,10 @@ class _ProgramScreenState extends State<ProgramScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => WorkoutScreen(workout: workout, isActive: true),
+                              builder: (context) => WorkoutScreen(
+                                workout: workout,
+                                isActive: true,
+                              ),
                             ),
                           );
                         },

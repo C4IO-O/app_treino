@@ -20,18 +20,20 @@ class ExerciseInWorkout {
 
 class Workout {
   String name;
-  List<ExerciseInWorkout> exercise;
+  List<ExerciseInWorkout> exercises;
+  DateTime? lastPerformed;
 
-  Workout({required this.name}) : exercise = [];
+  Workout({required this.name}) : exercises = [];
 
   Map<String, dynamic> toJson() => {
     'name': name,
-    'exercises': exercise.map((e) => e.toJson()).toList(),
+    'exercises': exercises.map((e) => e.toJson()).toList(),
+    'lastPerformed': lastPerformed?.toIso8601String(),
   };
 
-  factory Workout.fromJson(Map<String, dynamic> json) =>
-      Workout(name: json['name'])
-        ..exercise = (json['exercises'] as List)
-            .map((e) => ExerciseInWorkout.fromJson(e))
-            .toList();
+  factory Workout.fromJson(Map<String, dynamic> json) => Workout(
+    name: json['name'],
+  )
+    ..exercises = (json['exercises'] as List).map((e) => ExerciseInWorkout.fromJson(e)).toList()
+    ..lastPerformed = json['lastPerformed'] != null ? DateTime.parse(json['lastPerformed']) : null;
 }
