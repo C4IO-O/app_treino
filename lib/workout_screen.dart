@@ -5,6 +5,7 @@ import 'workout.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'rest_timer_screen.dart';
 
 // editar treinos e realizar treinos (tela ativa)
 class WorkoutScreen extends StatefulWidget {
@@ -23,6 +24,12 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
+  //timer de descanso
+  late ValueNotifier<int> _restNotifier;
+  int _restTotal = 0;
+  Timer? _restTimer;
+
+  // timer do treino
   late Timer _timer;
   int _seconds = 0;
 
@@ -39,9 +46,278 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
   }
 
+  // função de começar o timer de descanso
+  void _startRestTimer(int seconds) {
+    _restTimer?.cancel();
+    _restTotal = seconds;
+    _restNotifier.value = seconds;
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_restNotifier.value <= 0) {
+        timer.cancel();
+        setState(() => _restTotal = 0);
+      } else {
+        _restNotifier.value--;
+      }
+    });
+  }
+
+  // função para mostrar as opções de descanso ao clicar no tipo da série
+  void _showRestSettings(ExerciseInWorkout exerciseInWorkout) {
+    int activeTab = 0; // 0 = Ativas, 1 = Aquecimento
+
+    late FixedExtentScrollController minutesController;
+    late FixedExtentScrollController secondsController;
+
+    void initControllers(int seconds) {
+      minutesController = FixedExtentScrollController(
+        initialItem: seconds ~/ 60,
+      );
+      secondsController = FixedExtentScrollController(
+        initialItem: seconds % 60,
+      );
+    }
+
+    initControllers(exerciseInWorkout.restSecondsActive);
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final seconds = activeTab == 0
+              // se a aba ativa for "0", usa restSecondsActive, caso contrário ("1") usa restSecondsWarmup
+              ? exerciseInWorkout.restSecondsActive
+              : exerciseInWorkout.restSecondsWarmup;
+
+          final minutes = seconds ~/ 60;
+          final secs = seconds % 60;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // cor e tamanho do fundo do menu que é usado para definir o descanso
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // cabeçalho
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_outlined, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            exerciseInWorkout.exercise.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const Text(
+                            'Descanso entre séries',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: exerciseInWorkout.restEnabled,
+                      onChanged: (val) {
+                        setModalState(
+                          () => exerciseInWorkout.restEnabled = val,
+                        );
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // tabs
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C2C2C),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        // aquecimento
+                        child: GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              activeTab = 1;
+                              minutesController.jumpToItem(
+                                exerciseInWorkout.restSecondsWarmup ~/ 60,
+                              );
+                              secondsController.jumpToItem(
+                                exerciseInWorkout.restSecondsWarmup % 60,
+                              );
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: activeTab == 1
+                                  ? Colors.black
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Séries de Aquecimento',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setModalState(() {
+                              activeTab = 0;
+                              minutesController.jumpToItem(
+                                exerciseInWorkout.restSecondsActive ~/ 60,
+                              );
+                              secondsController.jumpToItem(
+                                exerciseInWorkout.restSecondsActive % 60,
+                              );
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: activeTab == 0
+                                  ? Colors.black
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Séries ativas',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // scroll picker
+              SizedBox(
+                height: 120,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // minutos
+                    SizedBox(
+                      width: 80,
+                      child: ListWheelScrollView(
+                        itemExtent: 40,
+                        perspective: 0.003,
+                        onSelectedItemChanged: (val) {
+                          setModalState(() {
+                            final newSeconds = val * 60 + secs;
+                            if (activeTab == 0) {
+                              exerciseInWorkout.restSecondsActive = newSeconds;
+                            } else {
+                              exerciseInWorkout.restSecondsWarmup = newSeconds;
+                            }
+                          });
+                          setState(() {});
+                        },
+                        controller: minutesController,
+                        children: List.generate(
+                          60,
+                          (i) => Center(
+                            child: Text(
+                              '$i',
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Text(':', style: TextStyle(fontSize: 24)),
+                    // segundos
+                    SizedBox(
+                      width: 80,
+                      child: ListWheelScrollView(
+                        itemExtent: 40,
+                        perspective: 0.003,
+                        onSelectedItemChanged: (val) {
+                          setModalState(() {
+                            final newSeconds = minutes * 60 + val;
+                            if (activeTab == 0) {
+                              exerciseInWorkout.restSecondsActive = newSeconds;
+                            } else {
+                              exerciseInWorkout.restSecondsWarmup = newSeconds;
+                            }
+                          });
+                          setState(() {});
+                        },
+                        controller: secondsController,
+                        children: List.generate(
+                          60,
+                          (i) => Center(
+                            child: Text(
+                              i.toString().padLeft(2, '0'),
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // botão concluído
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                    ),
+                    child: const Text(
+                      'Concluído',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
+    _restNotifier = ValueNotifier(0);
     if (widget.isActive) {
       // resetar as séries
       for (final exercise in widget.workout.exercises) {
@@ -50,6 +326,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         }
       }
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        // timer do treino
         setState(() {
           _seconds++;
         });
@@ -60,7 +337,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void dispose() {
     if (widget.isActive) {
-      _timer.cancel();
+      _timer.cancel(); // cancelar timer do treino
+      _restNotifier.dispose();
+      _restTimer?.cancel(); // cancelar timer de descanso
     }
     super.dispose();
   }
@@ -70,6 +349,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final seconds = _seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+
 
   int get _totalVolume {
     return widget.workout.exercises.fold(0, (total, exercise) {
@@ -129,43 +409,97 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         title: Text(widget.workout.name),
         actions: [
           if (widget.isActive)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  _formattedTime,
-                  style: const TextStyle(fontSize: 18),
+            ValueListenableBuilder<int>(
+              valueListenable: _restNotifier,
+              builder: (context, remainingcountdown, _) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RestTimerScreen(
+                          restNotifier: _restNotifier,
+                          totalSeconds: _restTotal,
+                          onTimeSelected: (seconds) => _startRestTimer(seconds),
+                          onStop: () {
+                            _restTimer?.cancel();
+                            _restTotal = 0;
+                            _restNotifier.value = 0;
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: remainingcountdown > 0 && _restTotal > 0
+                        ? SizedBox(
+                            width: 64,
+                            height: 32,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: LinearProgressIndicator(
+                                    value: remainingcountdown / _restTotal,
+                                    backgroundColor: const Color(0xFF2C2C2C),
+                                    color: Colors.blue,
+                                    minHeight: 32,
+                                  ),
+                                ),
+                                Text(
+                                  '${remainingcountdown ~/ 60}:${(remainingcountdown % 60).toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : const Icon(Icons.timer_outlined, color: Colors.grey),
+                  ),
+                );
+              },
+            ),
+  if (widget.isActive)
+    Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Text(_formattedTime, style: const TextStyle(fontSize: 18)),
+      ),
+    ),
+            if (widget.isActive)
+              TextButton(
+                onPressed: () {
+                  _timer.cancel();
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Terminar',
+                  style: TextStyle(color: Colors.green),
+                ),
+              )
+            else
+              TextButton(
+                onPressed: () async {
+                  await _saveWorkout();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Treino guardado!')),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Guardar',
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
-            ),
-          if (widget.isActive)
-            TextButton(
-              onPressed: () {
-                _timer.cancel();
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Terminar',
-                style: TextStyle(color: Colors.green),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: () async {
-                await _saveWorkout();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Treino guardado!')),
-                  );
-                }
-              },
-              child: const Text(
-                'Guardar',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
         ],
       ),
+      
       // quando o treino tá ativo, mostra o progresso (volume total e séries completas) e permite marcar as séries como completas.
       body: Column(
         children: [
@@ -208,6 +542,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 ],
               ),
             ),
+
           Expanded(
             child: widget.workout.exercises.isEmpty
                 // ? -> se a condição for verdadeira (rotina estiver vazia) mostra a mensagem
@@ -288,9 +623,39 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                       _saveWorkout();
                                     },
                                   ),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        _showRestSettings(exerciseInWorkout),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 4,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.timer_outlined,
+                                            size: 14,
+                                            color: Colors.blue,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            exerciseInWorkout.restEnabled
+                                                ? 'Descanso: ${exerciseInWorkout.restSecondsActive ~/ 60}m ${exerciseInWorkout.restSecondsActive % 60 == 0 ? '' : '${exerciseInWorkout.restSecondsActive % 60}s'}'
+                                                : 'Sem descanso',
+                                            style: const TextStyle(
+                                              color: Colors.blue,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
+
                             // 2. Lista de séries
                             ...exerciseInWorkout.sets.asMap().entries.map((
                               entry,
@@ -551,7 +916,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                           },
                                         ),
                                       ),
-                                      // só mostra o checkbox para marcar série como completa durante o treino
+                                      // função de marcar série como concluída
                                       if (widget.isActive)
                                         GestureDetector(
                                           onTap: () {
@@ -559,6 +924,39 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                               () => set.isCompleted =
                                                   !set.isCompleted,
                                             );
+                                            // abrir o timer automáticamente quando conclui uma série
+                                            if (set.isCompleted &&
+                                                exerciseInWorkout.restEnabled) {
+                                              final isWarmup = set.tipo == 'A';
+                                              final seconds = isWarmup
+                                                  ? exerciseInWorkout
+                                                        .restSecondsWarmup
+                                                  : exerciseInWorkout
+                                                        .restSecondsActive;
+                                              _startRestTimer(seconds);
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      RestTimerScreen(
+                                                        restNotifier:
+                                                            _restNotifier,
+                                                        totalSeconds: seconds,
+                                                        onTimeSelected:
+                                                            (seconds) =>
+                                                                _startRestTimer(
+                                                                  seconds,
+                                                                ),
+                                                        onStop: () {
+                                                          _restTimer?.cancel();
+                                                          _restTotal = 0;
+                                                          _restNotifier.value =
+                                                              0;
+                                                        },
+                                                      ),
+                                                ),
+                                              );
+                                            }
                                           },
                                           child: Container(
                                             width: 32,
