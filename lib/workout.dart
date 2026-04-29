@@ -38,9 +38,21 @@ class Workout {
   String name;
   List<ExerciseInWorkout> exercises;
   DateTime? lastPerformed;
+  int elapsedSeconds = 0; // tempo total em segundos do treino ativo
+  bool isActiveSession = false; // indica se há uma sessão em curso
 
   Workout({required this.name}) : exercises = [];
 
+  void resetProgress() {
+    elapsedSeconds = 0;
+    isActiveSession = false;
+    for (final exercise in exercises) {
+      for (final set in exercise.sets) {
+        set.isCompleted = false;
+      }
+    }
+  }
+  
   Map<String, dynamic> toJson() => {
     'name': name,
     'exercises': exercises.map((e) => e.toJson()).toList(),

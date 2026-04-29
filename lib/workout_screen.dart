@@ -1,6 +1,7 @@
 import 'package:app_treino/sets.dart';
 import 'package:flutter/material.dart';
 import 'exercise_list_screen.dart';
+import 'package:app_treino/workout_state.dart';
 import 'workout.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,11 +13,13 @@ class WorkoutScreen extends StatefulWidget {
   final Workout workout;
   final bool
   isActive; // indica se o treino está sendo realizado ou apenas editado
+  final VoidCallback? onMinimize;
 
   const WorkoutScreen({
     super.key,
     required this.workout,
     this.isActive = false,
+    this.onMinimize,
   });
 
   @override
@@ -32,6 +35,88 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   // timer do treino
   late Timer _timer;
   int _seconds = 0;
+
+  bool _minimized = false;
+
+  void _showMinimizeOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+            // Cabeçalho opcional
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Treino em andamento',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+
+            // Opção: Minimizar / Continuar depois
+            ListTile(
+              leading: const Icon(Icons.minimize),
+              title: const Text('Minimizar Treino'),
+              onTap: () {
+                Navigator.pop(sheetContext); // fecha o menu
+                setState(() => _minimized = true);
+                if (widget.onMinimize != null) {
+                  widget.onMinimize!();
+                } else {
+                  Navigator.pop(context); // volta ao ecrã anterior
+                }
+              },
+            ),
+
+            // Opção: Cancelar treino
+            ListTile(
+              leading: const Icon(Icons.cancel, color: Colors.red),
+              title: const Text(
+                'Cancelar treino',
+                style: TextStyle(color: Colors.red),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext); // fecha o menu
+                _confirmCancelWorkout(context);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmCancelWorkout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancelar treino'),
+        content: const Text(
+          'Tens a certeza que queres cancelar o treino em andamento?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Continuar treino'),
+          ),
+          TextButton(
+            onPressed: () {
+              // Cancela definitivamente
+              Navigator.pop(dialogContext); // fecha o diálogo
+              WorkoutState.activeWorkout.value = null;
+              // Cuidado: não uses setState aqui, o treino vai ser destruído.
+              // Usa um pequeno delay ou simplesmente faz pop.
+              Navigator.pop(context); // sai do WorkoutScreen
+            },
+            child: const Text('Cancelar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 
   // função para renumerar as séries normais (tipo numérico ou '__normal__')
   // sempre que uma série é marcada como normal ou quando uma série normal é removida, garantindo que os números fiquem sequenciais
@@ -314,21 +399,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
+  // começar treino
   @override
   void initState() {
     super.initState();
     _restNotifier = ValueNotifier(0);
+
     if (widget.isActive) {
-      // resetar as séries
-      for (final exercise in widget.workout.exercises) {
-        for (final set in exercise.sets) {
-          set.isCompleted = false;
-        }
-      }
+      // treino em andamento
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+  WorkoutState.activeWorkout.value = widget.workout;
+});
+      widget.workout.isActiveSession = true;
+
+      // continuar a contar a partir do tempo já decorrido (se houver)
+      _seconds = widget.workout.elapsedSeconds;
+
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         // timer do treino
         setState(() {
           _seconds++;
+          widget.workout.elapsedSeconds = _seconds; // guarda em tempo real
         });
       });
     }
@@ -337,9 +428,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void dispose() {
     if (widget.isActive) {
+      widget.workout.elapsedSeconds = _seconds;
       _timer.cancel(); // cancelar timer do treino
       _restNotifier.dispose();
       _restTimer?.cancel(); // cancelar timer de descanso
+      
+      if (!_minimized) {
+        widget.workout.resetProgress();
+        WorkoutState.activeWorkout.value = null;
+      }
     }
     super.dispose();
   }
@@ -349,7 +446,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final seconds = _seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
-
 
   int get _totalVolume {
     return widget.workout.exercises.fold(0, (total, exercise) {
@@ -406,7 +502,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         child: const Icon(Icons.add),
       ),
       appBar: AppBar(
+        leading: widget.isActive
+            ? IconButton(
+                icon: const Icon(Icons.keyboard_arrow_down),
+                onPressed: () => _showMinimizeOptions(context),
+              )
+            : null,
+
         title: Text(widget.workout.name),
+
         actions: [
           if (widget.isActive)
             ValueListenableBuilder<int>(
@@ -464,42 +568,46 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 );
               },
             ),
-  if (widget.isActive)
-    Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(_formattedTime, style: const TextStyle(fontSize: 18)),
-      ),
-    ),
-            if (widget.isActive)
-              TextButton(
-                onPressed: () {
-                  _timer.cancel();
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Terminar',
-                  style: TextStyle(color: Colors.green),
-                ),
-              )
-            else
-              TextButton(
-                onPressed: () async {
-                  await _saveWorkout();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Treino guardado!')),
-                    );
-                  }
-                },
-                child: const Text(
-                  'Guardar',
-                  style: TextStyle(color: Colors.white),
+          if (widget.isActive)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  _formattedTime,
+                  style: const TextStyle(fontSize: 18),
                 ),
               ),
+            ),
+          if (widget.isActive)
+            TextButton(
+              onPressed: () {
+                _timer.cancel();
+                WorkoutState.activeWorkout.value = null;
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Terminar',
+                style: TextStyle(color: Colors.green),
+              ),
+            )
+          else
+            TextButton(
+              onPressed: () async {
+                await _saveWorkout();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Treino guardado!')),
+                  );
+                }
+              },
+              child: const Text(
+                'Guardar',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
         ],
       ),
-      
+
       // quando o treino tá ativo, mostra o progresso (volume total e séries completas) e permite marcar as séries como completas.
       body: Column(
         children: [

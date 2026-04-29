@@ -1,6 +1,8 @@
+import 'package:app_treino/utils.dart';
 import 'package:flutter/material.dart';
 import 'workout.dart';
 import 'workout_screen.dart';
+import 'package:app_treino/banner_workout_progress/workout_banner_listener.dart';
 
 class WorkoutDetailScreen extends StatefulWidget {
   final Workout workout;
@@ -24,10 +26,12 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           ),
         ],
       ),
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+
+        // cabeçalho (nome do treino, última data)
         children: [
-          // cabeçalho
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -50,6 +54,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               ],
             ),
           ),
+
           // lista de exercícios
           Expanded(
             child: ListView.builder(
@@ -99,17 +104,20 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               },
             ),
           ),
+
           // botão começar treino
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  if (!await canStartNewWorkout(context)) return;
+                  widget.workout.resetProgress();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => WorkoutScreen(
+                      builder: (_) => WorkoutScreen(
                         workout: widget.workout,
                         isActive: true,
                       ),
@@ -131,6 +139,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
               ),
             ),
           ),
+          const WorkoutBannerListener(),
         ],
       ),
     );

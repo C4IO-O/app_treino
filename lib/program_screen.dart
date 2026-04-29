@@ -1,3 +1,5 @@
+import 'package:app_treino/utils.dart';
+import 'package:app_treino/banner_workout_progress/workout_banner_listener.dart';
 import 'package:flutter/material.dart';
 import 'package:app_treino/program.dart';
 import 'workout.dart';
@@ -27,6 +29,7 @@ class _ProgramScreenState extends State<ProgramScreen> {
       context: context,
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
+
         children: [
           ListTile(
             leading: const Icon(Icons.edit),
@@ -36,6 +39,7 @@ class _ProgramScreenState extends State<ProgramScreen> {
               _renameWorkout(workout);
             },
           ),
+
           ListTile(
             leading: const Icon(Icons.copy),
             title: const Text('Duplicar'),
@@ -48,6 +52,7 @@ class _ProgramScreenState extends State<ProgramScreen> {
               });
             },
           ),
+
           ListTile(
             leading: const Icon(Icons.drive_file_move_outline),
             title: const Text('Mover para outro programa'),
@@ -56,6 +61,7 @@ class _ProgramScreenState extends State<ProgramScreen> {
               _moveWorkout(workout, index);
             },
           ),
+
           ListTile(
             leading: const Icon(Icons.delete_outline, color: Colors.red),
             title: const Text('Excluir', style: TextStyle(color: Colors.red)),
@@ -68,16 +74,19 @@ class _ProgramScreenState extends State<ProgramScreen> {
                   content: Text(
                     'Tens a certeza que queres excluir "${workout.name}"?',
                   ),
+
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancelar'),
                     ),
+
                     TextButton(
                       onPressed: () {
                         setState(() => widget.program.workouts.removeAt(index));
                         Navigator.pop(context);
                       },
+
                       child: const Text(
                         'Excluir',
                         style: TextStyle(color: Colors.red),
@@ -108,6 +117,7 @@ class _ProgramScreenState extends State<ProgramScreen> {
       );
       return;
     }
+
     showModalBottomSheet(
       context: context,
       builder: (context) => Column(
@@ -202,53 +212,69 @@ class _ProgramScreenState extends State<ProgramScreen> {
         },
         child: const Icon(Icons.add),
       ),
-      body: widget.program.workouts.isEmpty
-          ? const Center(child: Text('Nenhum treino criado'))
-          : ListView.builder(
-              itemCount: widget.program.workouts.length,
-              itemBuilder: (context, index) {
-                final workout = widget.program.workouts[index];
-                return ListTile(
-                  leading: const Icon(Icons.fitness_center),
-                  title: Text(workout.name),
-                  subtitle: Text('${workout.exercises.length} exercícios'),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            WorkoutDetailScreen(workout: workout),
-                      ),
-                    );
-                    setState(() {});
-                  },
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow, color: Colors.green),
-                        onPressed: () {
-                          Navigator.push(
+      body: Column(
+        children: [
+          Expanded(
+            child: widget.program.workouts.isEmpty
+                ? const Center(child: Text('Nenhum treino criado'))
+                : ListView.builder(
+                    itemCount: widget.program.workouts.length,
+                    itemBuilder: (context, index) {
+                      final workout = widget.program.workouts[index];
+                      return ListTile(
+                        leading: const Icon(Icons.fitness_center),
+                        title: Text(workout.name),
+                        subtitle: Text(
+                          '${workout.exercises.length} exercícios',
+                        ),
+                        onTap: () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => WorkoutScreen(
-                                workout: workout,
-                                isActive: true,
-                              ),
+                              builder: (context) =>
+                                  WorkoutDetailScreen(workout: workout),
                             ),
                           );
+                          setState(() {});
                         },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        onPressed: () =>
-                            _showWorkoutOptions(context, workout, index),
-                      ),
-                    ],
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.play_arrow,
+                                color: Colors.green,
+                              ),
+                              onPressed: () async {
+                                if (!await canStartNewWorkout(context)) return;
+                                workout
+                                    .resetProgress(); // limpa a sessão anterior (se existir)
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => WorkoutScreen(
+                                      workout: workout,
+                                      isActive: true,
+                                    ),
+                                  ),
+                                );
+                                setState(() {});
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.more_vert),
+                              onPressed: () =>
+                                  _showWorkoutOptions(context, workout, index),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+          ),
+          const WorkoutBannerListener(),
+        ],
+      ),
     );
   }
 }

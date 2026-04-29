@@ -1,4 +1,5 @@
 import 'package:app_treino/program.dart';
+import 'package:app_treino/banner_workout_progress/workout_banner_listener.dart';
 import 'package:flutter/material.dart';
 import 'program_screen.dart';
 import 'dart:convert';
@@ -171,33 +172,43 @@ class _LibraryScreenState extends State<LibraryScreen> {
         },
         child: const Icon(Icons.add),
       ),
-      body: programs.isEmpty
-          ? const Center(child: Text('Nenhum programa adicionado'))
-          : ListView.builder(
-              itemCount: programs.length,
-              itemBuilder: (context, index) {
-                final program = programs[index];
-                return ListTile(
-                  trailing: IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () => _showOptions(context, program, index),
+      body: Column(
+        children: [
+          Expanded(
+            child: programs.isEmpty
+                ? const Center(child: Text('Nenhum programa adicionado'))
+                : ListView.builder(
+                    itemCount: programs.length,
+                    itemBuilder: (context, index) {
+                      final program = programs[index];
+                      return ListTile(
+                        trailing: IconButton(
+                          icon: const Icon(Icons.more_vert),
+                          onPressed: () =>
+                              _showOptions(context, program, index),
+                        ),
+                        leading: const Icon(Icons.fitness_center),
+                        title: Text(program.name),
+                        subtitle: Text('${program.workouts.length} treinos'),
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProgramScreen(
+                                program: program,
+                                allPrograms: programs,
+                              ),
+                            ),
+                          );
+                          setState(() {});
+                        },
+                      );
+                    },
                   ),
-                  leading: const Icon(Icons.fitness_center),
-                  title: Text(program.name),
-                  subtitle: Text('${program.workouts.length} treinos'),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ProgramScreen (program: program, allPrograms: programs), // passa a lista completa
-                      ),
-                    );
-                    // Atualiza a tela para refletir as mudanças na rotina
-                    setState(() {});
-                  },
-                );
-              },
-            ),
+          ),
+          const WorkoutBannerListener(),
+        ],
+      ),
     );
   }
 }
